@@ -9,8 +9,6 @@ library(tidyverse)
 load("Data/FullData_Factors.Rdata")
 source("Functions/StandardError.R")
 
-
-
 # Convert data to long format and summarize with mean and standard error values for score
 long <- FullData |>
   select(SubID, Condition, Group, T1_SCORE, T2_SCORE) |>
@@ -27,7 +25,6 @@ long <- FullData |>
     se_upper = ave_score + se_score
   ) |>
   filter(!is.na(Group))
-
 
 
 # Plot
@@ -53,7 +50,7 @@ Exp1_Plot <- long |>
 
   # Use "expand" to add space on the ends of the axis
   scale_x_discrete(expand = c(.5, .5)) +
-  
+
   # Manually set the fill colors
   scale_fill_manual(values = c("blueviolet", "darkgoldenrod1")) +
   
