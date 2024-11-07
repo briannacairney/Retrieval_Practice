@@ -9,6 +9,114 @@ library(tidyverse)
 load("Data/FullData_Factors.Rdata")
 source("Functions/StandardError.R")
 
+# PREP DATA FOR PLOTTING
+# Create long format data frame but keep individual subject values
+FullDataLong <- FullData |>
+  select(SubID, Condition, Group, T1_SCORE, T2_SCORE) |>
+  pivot_longer(cols = c("T1_SCORE", "T2_SCORE"),
+               names_to = "TestTimepoint", values_to = "Score") |>
+  group_by(SubID, Group, Condition, TestTimepoint) |>
+  summarise(
+    ave_score = mean(Score, na.rm = TRUE),
+    se_score = standard_error(Score), 
+    .groups = 'drop'
+  ) |>
+  mutate(
+    se_lower = ave_score - se_score,
+    se_upper = ave_score + se_score
+  ) 
+
+# Calculate summary statistics 
+sumStats <- FullData %>%
+  select(SubID, Condition, Group, T1_SCORE, T2_SCORE) |>
+  pivot_longer(cols = c("T1_SCORE", "T2_SCORE"),
+               names_to = "TestTimepoint", values_to = "Score") |>
+  group_by(Condition, Group, TestTimepoint) |>
+  summarise(
+    ave_score_All = mean(Score, na.rm = TRUE),
+    se_score_All = standard_error(Score), 
+    .groups = 'drop'
+  ) |>
+  mutate(
+    se_lower = ave_score_All - se_score_All,
+    se_upper = ave_score_All + se_score_All
+  ) |>
+  filter(!is.na(Group))
+
+# Add summary statistics to FullDataLong
+FullDataLong <- FullDataLong %>%
+  left_join(
+    sumStats %>%
+      select(Group, Condition, TestTimepoint, ave_score_All, se_score_All), 
+    by = c("Group", "Condition", "TestTimepoint")
+  ) %>%
+  rename(OverallMean = ave_score_All,
+         OverallSE = se_score_All)
+# Add new SE for plots
+FullDataLong$Plot_SE_Lower = FullDataLong$OverallMean - FullDataLong$OverallSE
+FullDataLong$Plot_SE_Upper = FullDataLong$OverallMean + FullDataLong$OverallSE
+
+# Update labels for plot
+FullDataLong <- FullDataLong %>% 
+  mutate(TestTimepoint = ifelse(TestTimepoint == "T1_SCORE",
+                                "T1",
+                                "T2"),
+         Condition = ifelse(Condition == "FB", 
+                            "Feedback", 
+                            "No feedback"),
+         Group = ifelse(Group == "AUT", 
+                        "Autistic", 
+                        "Non-autistic"))
+
+
+
+# PLOT DATA with individual data points 
+myPlot <- ggplot(data = FullDataLong, aes(x = TestTimepoint, y = ave_score, color = Group, group = Group)) + 
+  geom_jitter(position = position_dodge(width = 0.5), # Dodge groups side by side
+              # width = 0.2,  # Add slight horizontal jitter
+              size = 2) +   # Adjust size for visibility
+  
+  # Optional: Add standard error bars
+  geom_errorbar(aes(x = TestTimepoint, y = ave_score, ymin = Plot_SE_Lower, ymax = Plot_SE_Upper),
+                color = "black",
+                position =  position_dodge(width = 0.5),
+                width = 0.5) +
+  
+  stat_summary(fun.y = mean, geom = "point", size = 3, color = "black", position = position_dodge(width = 0.5)) +
+  
+  # Use "expand" to add space on the ends of the x-axis
+  scale_x_discrete(expand = c(0.5, 0.5)) +
+  
+  # Faceting by Condition
+  facet_wrap(~ Condition, strip.position = "bottom") +
+  
+  # Customizing theme
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        strip.placement = "outside",
+        panel.spacing = unit(0, "cm"),
+        legend.position = "bottom",
+        strip.text = element_text(size = 16, face = "bold"),
+        axis.title = element_text(size = 16, face = "bold", color = "black"),
+        axis.title.y = element_text(vjust = 2),
+        axis.text = element_text(size = 16, face = "bold", color = "black"),
+        legend.text = element_text(size = 16, face = "bold", color = "black")
+  ) + 
+  labs(fill = "", x = "", y = "Mean recall score") 
+
+myPlot
+
+# Save plot
+# ggsave(plot = myPlot, file = "Plots/Exp1_Plot.png", bg = "white")
+
+
+
+
+
+
+
+# PLOT DATA as bar plot
 # Convert data to long format and summarize with mean and standard error values for score
 long <- FullData |>
   select(SubID, Condition, Group, T1_SCORE, T2_SCORE) |>
@@ -26,11 +134,8 @@ long <- FullData |>
   ) |>
   filter(!is.na(Group))
 
-
-# Plot
-Exp1_Plot <- long |>
-  
-  # Update labels for plot
+# Update labels for plot
+long <- long %>% 
   mutate(TestTimepoint = ifelse(TestTimepoint == "T1_SCORE",
                                 "T1",
                                 "T2"),
@@ -39,18 +144,22 @@ Exp1_Plot <- long |>
                             "No feedback"),
          Group = ifelse(Group == "AUT", 
                         "Autistic", 
-                        "Non-autistic")) |>
+                        "Non-autistic"))
+
+
+# Bar plot
+Exp1_Plot <- long |>
   
   ggplot(aes(TestTimepoint, ave_score, fill = Group)) + 
   geom_col(position = "dodge",
            width = .75) + 
   
   # Add standard error bars
-  # geom_errorbar(aes(x = TestTimepoint, y = ave_score, ymin = se_lower, ymax = se_upper)) +
+  geom_errorbar(aes(ymin = se_lower, ymax = se_upper), position = position_dodge(0.75), width = .5) + 
 
   # Use "expand" to add space on the ends of the axis
   scale_x_discrete(expand = c(.5, .5)) +
-
+  
   # Manually set the fill colors
   scale_fill_manual(values = c("blueviolet", "darkgoldenrod1")) +
   
@@ -68,12 +177,10 @@ Exp1_Plot <- long |>
         axis.title.y = element_text(vjust = 2),
         axis.text = element_text(size = 16, face = "bold", color = "black"),
         legend.text = element_text(size = 16, face = "bold", color = "black")
-        ) + 
+  ) + 
   labs(fill = "", x = "", y = "Mean recall score") 
 
 Exp1_Plot
 
 # Save plot
-ggsave(plot = Exp1_Plot, file = "Plots/Exp1_Plot.png", bg = "white")
-
-
+# ggsave(plot = Exp1_Plot, file = "Plots/Exp1_BarPlot.png", bg = "white")
