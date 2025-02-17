@@ -29,4 +29,3 @@ emm_Mod2 <- emmeans(Model_2, ~ ConditionFactor | T1_SCORE)
 summary(emm_Mod2)
 emm_Mod2pairs <- pairs(emmeans(Model_2, ~ ConditionFactor | T1_SCORE))
 summary(emm_Mod2pairs)
-
