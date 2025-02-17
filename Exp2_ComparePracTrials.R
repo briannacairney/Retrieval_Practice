@@ -4,6 +4,7 @@
 library(dplyr)
 
 load('Data/ScoredData.Rdata')
+source('Functions/StandardError.R')
 
 # Create a new variable that combines Trial Type and Condition (i.e., Prac-Restudy, Test-FB, and Test-NF)
 ScoredData2 <- ScoredData
@@ -45,34 +46,50 @@ ezLimit
 # DFn DFd         SSn       SSd         F          p  p<.05
 #   5 314  0.03899219  7.937188  0.308511  0.9076879       
 
+PES <- 0.03899219 / (0.03899219 + 7.937188) # 0.004888579
 
 
-
-# To belabor the point... 
 
 # Split up data by practice trial type 
-SubMeans_Study <- SubMeans %>%
-  filter(TrialType == "PRAC-RESTUDY")
-mean(SubMeans_Study$Sub_Mean) # 0.199375
-SubMeans_TEST_FB <- SubMeans %>%
-  filter(TrialType == "PRAC-TEST-FB")
-mean(SubMeans_TEST_FB$Sub_Mean) # 0.2746875
-SubMeans_TEST_NF <- SubMeans %>%
-  filter(TrialType == "PRAC-TEST-NF")
-mean(SubMeans_TEST_NF$Sub_Mean) # 0.2415625
+GroupMeans <- ScoredData2 %>%
+  group_by(TrialType) %>%
+  summarize(GroupMean = mean(SCORE), 
+            GroupSE = standard_error(SCORE))
+
+# TrialType    GroupMean GroupSE
+# PRAC-RESTUDY     0.199 0.00499
+# PRAC-TEST-FB     0.275 0.00789
+# PRAC-TEST-NF     0.242 0.00757
+
+
 
 ## t-Tests for pair-wise comparisons ##
-# Test-FB vs. Test-NF
-t.test(SubMeans_TEST_FB$Sub_Mean, SubMeans_TEST_NF$Sub_Mean, paired = FALSE) # NS
-t.test(SubMeans_TEST_FB$Sub_Mean, SubMeans_Study$Sub_Mean, paired = FALSE)   # t = 2.6234, df = 164.37, p-value = 0.009525
-t.test(SubMeans_TEST_NF$Sub_Mean, SubMeans_Study$Sub_Mean, paired = FALSE)   # NS
+SubMeans_Study <- SubMeans %>%
+  filter(TrialType == "PRAC-RESTUDY")
+SubMeans_TEST_FB <- SubMeans %>%
+  filter(TrialType == "PRAC-TEST-FB")
+SubMeans_TEST_NF <- SubMeans %>%
+  filter(TrialType == "PRAC-TEST-NF")
 
+# Test-FB vs. Test-NF
+t.test(SubMeans_TEST_FB$Sub_Mean, SubMeans_TEST_NF$Sub_Mean, paired = FALSE) # NS (t = 0.98018, df = 157.31, p-value = 0.3285)
+# Test-FB vs. Test-Study
+t.test(SubMeans_TEST_FB$Sub_Mean, SubMeans_Study$Sub_Mean, paired = FALSE)   # t = 2.6234, df = 164.37, p-value = 0.009525
+effectsize::cohens_d(SubMeans_TEST_FB$Sub_Mean, SubMeans_Study$Sub_Mean, paired = FALSE) # Cohen's D = 0.35; 95% CI = [0.08, 0.62]
+# Test-NF vs. Test-Study
+t.test(SubMeans_TEST_NF$Sub_Mean, SubMeans_Study$Sub_Mean, paired = FALSE)   # NS (t = 1.4066, df = 154.94, p-value = 0.1616)
+
+
+
+
+
+# Cut stuff 12.9.24
 # Split further by Group + pair-wise comparisons 
 SubMeans_Study_Aut <- SubMeans_Study %>%
   filter(Group == "Aut")
 SubMeans_Study_NonAut <- SubMeans_Study %>%
   filter(Group == "NonAut")
-t.test(SubMeans_Study_Aut$Sub_Mean, SubMeans_Study_NonAut$Sub_Mean) # NS
+t.test(SubMeans_Study_Aut$Sub_Mean, SubMeans_Study_NonAut$Sub_Mean) # NS (t = 0.51189, df = 157.99, p-value = 0.6094)
 
 SubMeans_TEST_FB_Aut <- SubMeans_TEST_FB %>%
   filter(Group == "Aut")
@@ -85,10 +102,7 @@ SubMeans_TEST_NF_Aut <- SubMeans_TEST_NF %>%
   filter(Group == "Aut")
 SubMeans_TEST_NF_NonAut <- SubMeans_TEST_NF %>%
   filter(Group == "NonAut")
-t.test(SubMeans_TEST_NF_Aut$Sub_Mean, SubMeans_TEST_NF_NonAut$Sub_Mean) # NS
-
-
-
+t.test(SubMeans_TEST_NF_Aut$Sub_Mean, SubMeans_TEST_NF_NonAut$Sub_Mean) # NS (t = 0.41577, df = 75.714, p-value = 0.6788)
 
 # From 11.18.24
 library(lmerTest)
