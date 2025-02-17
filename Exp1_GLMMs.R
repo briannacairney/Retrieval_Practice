@@ -12,6 +12,7 @@ contrasts(FullData$ConditionFactor) # NF = -0.5; FB = 0.5
 contrasts(FullData$GroupFactor)     # NONAUT = -0.5; AUT = 0.5
 
 # Does feedback affect final recall accuracy and to the same extent for non/autistic adults?
+# (not included in manuscript)
 Model_1 <- glmer(T2_SCORE ~ ConditionFactor * GroupFactor + (1|SubID), 
                  family= 'binomial', 
                  data = FullData)
